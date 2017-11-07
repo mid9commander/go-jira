@@ -184,3 +184,38 @@ func TestBoardService_GetAllSprints(t *testing.T) {
 		t.Errorf("Expected 4 transitions. Got %d", len(sprints))
 	}
 }
+
+func TestBoardService_GetActiveSprint(t *testing.T) {
+	setup()
+	defer teardown()
+
+	testAPIEndpoint := "/rest/agile/1.0/board/123/sprint"
+
+	raw, err := ioutil.ReadFile("./mocks/sprint.json")
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	testMux.HandleFunc(testAPIEndpoint, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testRequestURL(t, r, testAPIEndpoint)
+    if r.URL.Query().Get("state") != "active" {
+       t.Error("state was not set to active")
+    }
+		fmt.Fprint(w, string(raw))
+	})
+
+	opt := &BoardGetQueryOptions{
+		State: "active",
+	}
+
+	sprint, _, err := testClient.Board.GetActiveSprint("123", opt)
+
+	if err != nil {
+		t.Errorf("Got error: %v", err)
+	}
+
+	if sprint == nil {
+		t.Error("Expected sprint. Got nil.")
+	}
+}

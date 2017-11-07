@@ -3,6 +3,8 @@ package jira
 import (
 	"fmt"
 	"time"
+
+	"github.com/google/go-querystring/query"
 )
 
 // BoardService handles Agile Boards for the JIRA instance / API.
@@ -59,6 +61,12 @@ type Sprint struct {
 	OriginBoardID int        `json:"originBoardId" structs:"originBoardId"`
 	Self          string     `json:"self" structs:"self"`
 	State         string     `json:"state" structs:"state"`
+}
+
+// GetQueryOptions specifies the optional parameters for the Get Issue methods
+type BoardGetQueryOptions struct {
+	// Fields is the list of fields to return for the issue. By default, all fields are returned.
+	State string `url:"state,omitempty"`
 }
 
 // GetAllBoards will returns all boards. This only includes boards that the user has permission to view.
@@ -163,4 +171,42 @@ func (s *BoardService) GetAllSprints(boardID string) ([]Sprint, *Response, error
 	}
 
 	return result.Sprints, resp, err
+}
+
+// GetActiveSprint will returns the current active sprint from a board, for a given board Id.
+// This only includes sprint that the user has permission to view.
+//
+// JIRA API docs: https://docs.atlassian.com/jira-software/REST/cloud/#agile/1.0/board/{boardId}/sprint
+func (s *BoardService) GetActiveSprint(boardID string, options *BoardGetQueryOptions) (*Sprint, *Response, error) {
+	apiEndpoint := fmt.Sprintf("rest/agile/1.0/board/%s/sprint", boardID)
+	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
+
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if options != nil {
+		q, err := query.Values(options)
+		fmt.Println(q)
+
+		if err != nil {
+			return nil, nil, err
+		}
+		req.URL.RawQuery = q.Encode()
+	}
+
+
+
+	result := new(sprintsResult)
+	resp, err := s.client.Do(req, result)
+
+	if err != nil {
+		err = NewJiraError(resp, err)
+	}
+
+  if len(result.Sprints) < 1 {
+		return nil, resp, err
+	}
+	return &result.Sprints[0], resp, err
 }
